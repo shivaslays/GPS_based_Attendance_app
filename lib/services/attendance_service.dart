@@ -159,4 +159,159 @@ class AttendanceService extends ChangeNotifier {
       return {'totalSessions': 0, 'totalAttendance': 0, 'averageAttendance': 0.0};
     }
   }
+
+  // Get comprehensive attendance report for a student
+  Future<List<Map<String, dynamic>>> getStudentAttendanceReport(String studentId) async {
+    try {
+      // Get all attendance sessions
+      final sessionsSnapshot = await _firestore
+          .collection('attendance_sessions')
+          .get();
+
+      // Get student's attendance records
+      final attendanceRecords = await getStudentAttendanceHistory(studentId);
+      final attendedSessionIds = attendanceRecords.map((record) => record['sessionId']).toSet();
+
+      List<Map<String, dynamic>> report = [];
+
+      for (var sessionDoc in sessionsSnapshot.docs) {
+        final sessionData = sessionDoc.data();
+        final sessionId = sessionDoc.id;
+        final isPresent = attendedSessionIds.contains(sessionId);
+
+        // Get lecture details
+        final lectureDoc = await _firestore
+            .collection('lectures')
+            .doc(sessionData['lectureId'])
+            .get();
+
+        // Get subject details
+        final subjectDoc = await _firestore
+            .collection('subjects')
+            .doc(sessionData['subjectId'])
+            .get();
+
+        if (lectureDoc.exists && subjectDoc.exists) {
+          report.add({
+            'sessionId': sessionId,
+            'lectureTitle': lectureDoc.data()?['title'] ?? 'Unknown Lecture',
+            'subjectName': subjectDoc.data()?['name'] ?? 'Unknown Subject',
+            'date': sessionData['startTime'] != null 
+                ? DateFormat('yyyy-MM-dd').format((sessionData['startTime'] as Timestamp).toDate())
+                : 'Unknown Date',
+            'time': sessionData['startTime'] != null 
+                ? DateFormat('HH:mm').format((sessionData['startTime'] as Timestamp).toDate())
+                : 'Unknown Time',
+            'isPresent': isPresent,
+            'timestamp': sessionData['startTime'],
+          });
+        }
+      }
+
+      // Sort by timestamp in descending order (most recent first)
+      report.sort((a, b) {
+        try {
+          final aTimestamp = a['timestamp'];
+          final bTimestamp = b['timestamp'];
+          
+          if (aTimestamp == null && bTimestamp == null) return 0;
+          if (aTimestamp == null) return 1;
+          if (bTimestamp == null) return -1;
+          
+          DateTime aDateTime = aTimestamp is DateTime 
+              ? aTimestamp 
+              : (aTimestamp as Timestamp).toDate();
+          DateTime bDateTime = bTimestamp is DateTime 
+              ? bTimestamp 
+              : (bTimestamp as Timestamp).toDate();
+          
+          return bDateTime.compareTo(aDateTime);
+        } catch (e) {
+          return 0;
+        }
+      });
+
+      return report;
+    } catch (e) {
+      print('Error getting student attendance report: $e');
+      return [];
+    }
+  }
+
+  // Get comprehensive attendance report for a teacher
+  Future<List<Map<String, dynamic>>> getTeacherAttendanceReport(String teacherId) async {
+    try {
+      // Get all attendance sessions for this teacher
+      final sessionsSnapshot = await _firestore
+          .collection('attendance_sessions')
+          .where('teacherId', isEqualTo: teacherId)
+          .get();
+
+      List<Map<String, dynamic>> report = [];
+
+      for (var sessionDoc in sessionsSnapshot.docs) {
+        final sessionData = sessionDoc.data();
+
+        // Get lecture details
+        final lectureDoc = await _firestore
+            .collection('lectures')
+            .doc(sessionData['lectureId'])
+            .get();
+
+        // Get subject details
+        final subjectDoc = await _firestore
+            .collection('subjects')
+            .doc(sessionData['subjectId'])
+            .get();
+
+        if (lectureDoc.exists && subjectDoc.exists) {
+          final attendedStudents = sessionData['attendedStudents'] as List? ?? [];
+          
+          report.add({
+            'sessionId': sessionDoc.id,
+            'lectureTitle': lectureDoc.data()?['title'] ?? 'Unknown Lecture',
+            'subjectName': subjectDoc.data()?['name'] ?? 'Unknown Subject',
+            'date': sessionData['startTime'] != null 
+                ? DateFormat('yyyy-MM-dd').format((sessionData['startTime'] as Timestamp).toDate())
+                : 'Unknown Date',
+            'time': sessionData['startTime'] != null 
+                ? DateFormat('HH:mm').format((sessionData['startTime'] as Timestamp).toDate())
+                : 'Unknown Time',
+            'attendedCount': attendedStudents.length,
+            'attendedStudents': attendedStudents,
+            'isActive': sessionData['isActive'] ?? false,
+            'timestamp': sessionData['startTime'],
+          });
+        }
+      }
+
+      // Sort by timestamp in descending order (most recent first)
+      report.sort((a, b) {
+        try {
+          final aTimestamp = a['timestamp'];
+          final bTimestamp = b['timestamp'];
+          
+          if (aTimestamp == null && bTimestamp == null) return 0;
+          if (aTimestamp == null) return 1;
+          if (bTimestamp == null) return -1;
+          
+          DateTime aDateTime = aTimestamp is DateTime 
+              ? aTimestamp 
+              : (aTimestamp as Timestamp).toDate();
+          DateTime bDateTime = bTimestamp is DateTime 
+              ? bTimestamp 
+              : (bTimestamp as Timestamp).toDate();
+          
+          return bDateTime.compareTo(aDateTime);
+        } catch (e) {
+          return 0;
+        }
+      });
+
+      return report;
+    } catch (e) {
+      print('Error getting teacher attendance report: $e');
+      return [];
+    }
+  }
 }

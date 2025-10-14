@@ -187,3 +187,4 @@ class _AddSubjectScreenState extends State<AddSubjectScreen> {
     );
   }
 }
+

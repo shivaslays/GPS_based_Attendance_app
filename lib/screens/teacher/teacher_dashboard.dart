@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../services/auth_service.dart';
+import '../../services/attendance_service.dart';
 import 'add_subject_screen.dart';
 import 'add_lecture_screen.dart';
 import 'take_attendance_screen.dart';
@@ -53,9 +54,14 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Welcome, Teacher!',
-                            style: Theme.of(context).textTheme.headlineSmall,
+                          Consumer<AuthService>(
+                            builder: (context, authService, child) {
+                              final userName = authService.userName ?? 'Teacher';
+                              return Text(
+                                'Welcome, $userName!',
+                                style: Theme.of(context).textTheme.headlineSmall,
+                              );
+                            },
                           ),
                           const SizedBox(height: 4),
                           Text(
@@ -141,11 +147,11 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                 Expanded(
                   child: _ActionCard(
                     icon: Icons.analytics,
-                    title: 'View Stats',
-                    subtitle: 'Attendance reports',
+                    title: 'Attendance Report',
+                    subtitle: 'View detailed reports',
                     color: Colors.blue,
                     onTap: () {
-                      _showStatsDialog();
+                      _showAttendanceReportDialog();
                     },
                   ),
                 ),
@@ -393,16 +399,191 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
     );
   }
 
-  void _showStatsDialog() {
+  void _showAttendanceReportDialog() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Attendance Statistics'),
-        content: const Text('Statistics feature coming soon!'),
+        title: const Text('Attendance Report'),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 500,
+          child: FutureBuilder<List<Map<String, dynamic>>>(
+            future: _getTeacherAttendanceReport(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              if (snapshot.hasError) {
+                return Center(child: Text('Error: ${snapshot.error}'));
+              }
+
+              if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.assignment, size: 64, color: Colors.grey),
+                      SizedBox(height: 16),
+                      Text('No attendance sessions yet'),
+                      SizedBox(height: 8),
+                      Text('Start taking attendance to see reports'),
+                    ],
+                  ),
+                );
+              }
+
+              final records = snapshot.data!;
+              final totalSessions = records.length;
+              final totalAttendance = records.fold<int>(0, (total, record) => total + (record['attendedCount'] as int));
+              final averageAttendance = totalSessions > 0 ? (totalAttendance / totalSessions).round() : 0;
+
+              return Column(
+                children: [
+                  // Summary Stats
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _StatItem('Sessions', totalSessions.toString(), Colors.blue),
+                        _StatItem('Total Attendance', totalAttendance.toString(), Colors.green),
+                        _StatItem('Average', averageAttendance.toString(), Colors.orange),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Detailed List
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: records.length,
+                      itemBuilder: (context, index) {
+                        final record = records[index];
+                        return Card(
+                          margin: const EdgeInsets.symmetric(vertical: 4),
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: record['isActive'] ? Colors.orange : Colors.blue,
+                              child: Icon(
+                                record['isActive'] ? Icons.play_arrow : Icons.stop,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                            ),
+                            title: Text(
+                              record['lectureTitle'] ?? 'Unknown Lecture',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(record['subjectName'] ?? 'Unknown Subject'),
+                                Text('${record['date']} at ${record['time']}'),
+                              ],
+                            ),
+                            trailing: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  '${record['attendedCount']} students',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green,
+                                  ),
+                                ),
+                                Text(
+                                  record['isActive'] ? 'Active' : 'Completed',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: record['isActive'] ? Colors.orange : Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            onTap: () => _showSessionDetails(record),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> _getTeacherAttendanceReport() async {
+    final teacherId = _auth.currentUser?.uid;
+    if (teacherId == null) return [];
+
+    // Import the attendance service
+    final attendanceService = Provider.of<AttendanceService>(context, listen: false);
+    return await attendanceService.getTeacherAttendanceReport(teacherId);
+  }
+
+  void _showSessionDetails(Map<String, dynamic> session) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Session Details - ${session['lectureTitle']}'),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 300,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _DetailRow('Subject', session['subjectName'] ?? 'Unknown'),
+              _DetailRow('Date', session['date'] ?? 'Unknown'),
+              _DetailRow('Time', session['time'] ?? 'Unknown'),
+              _DetailRow('Status', session['isActive'] ? 'Active' : 'Completed'),
+              _DetailRow('Students Attended', '${session['attendedCount']}'),
+              const SizedBox(height: 16),
+              const Text(
+                'Attended Students:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: session['attendedStudents'] != null && (session['attendedStudents'] as List).isNotEmpty
+                    ? ListView.builder(
+                        itemCount: (session['attendedStudents'] as List).length,
+                        itemBuilder: (context, index) {
+                          return ListTile(
+                            leading: const CircleAvatar(
+                              backgroundColor: Colors.green,
+                              child: Icon(Icons.person, color: Colors.white, size: 16),
+                            ),
+                            title: Text('Student ${index + 1}'),
+                            subtitle: Text('ID: ${(session['attendedStudents'] as List)[index]}'),
+                          );
+                        },
+                      )
+                    : const Center(
+                        child: Text('No students attended this session'),
+                      ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
           ),
         ],
       ),
@@ -575,6 +756,66 @@ class _ActionCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _StatItem extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+
+  const _StatItem(this.label, this.value, this.color);
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            color: Colors.grey,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _DetailRow(this.label, this.value);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              '$label:',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          Expanded(
+            child: Text(value),
+          ),
+        ],
       ),
     );
   }
