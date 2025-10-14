@@ -7,6 +7,8 @@ import 'screens/student/student_dashboard.dart';
 import 'services/auth_service.dart';
 import 'services/location_service.dart';
 import 'services/attendance_service.dart';
+import 'services/notes_service.dart';
+import 'services/announcements_service.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -27,6 +29,8 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthService()),
         ChangeNotifierProvider(create: (_) => LocationService()),
         ChangeNotifierProvider(create: (_) => AttendanceService()),
+        ChangeNotifierProvider(create: (_) => NotesService()),
+        ChangeNotifierProvider(create: (_) => AnnouncementsService()),
       ],
       child: MaterialApp(
         title: 'EduPortal',
