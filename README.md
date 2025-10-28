@@ -9,13 +9,18 @@ A comprehensive Flutter application for managing student-teacher interactions wi
 - **Subject Management**: Add and manage subjects
 - **Lecture Scheduling**: Create and schedule lectures
 - **Attendance Taking**: Location-based attendance system
+- **Attendance Report**: Generates report for attendance
 - **Dashboard**: Overview of all subjects and lectures
+- **Announcements**: Teacher can send messages to all students or any particular student
+- 
 
 ### For Students:
 - **Authentication**: Student login system
 - **Attendance Popups**: Automatic attendance prompts when in range
 - **Attendance History**: View past attendance records
 - **Location Services**: Automatic location detection
+- **OCR Service**: OCR is used to scan notes
+- **Attendance Report**: Generates report for attendance
 
 ## Technical Features
 
