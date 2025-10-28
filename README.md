@@ -40,7 +40,7 @@ usage guide
 3. **Schedule Lectures**: Add lectures for each subject
 4. **Take Attendance**: 
    - Select subject and lecture
-   - Set attendance range (10-200 meters)
+   - Set attendance range (10-50 meters)
    - Start attendance session
    - Students within range will receive popup notifications
    - Stop session when done
