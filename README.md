@@ -64,10 +64,3 @@ usage guide
 - **attendance_records**: Individual attendance records
 
 
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Support
-
-For support and questions, please create an issue in the repository or contact the development team.
