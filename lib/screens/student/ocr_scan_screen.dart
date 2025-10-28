@@ -6,7 +6,9 @@ import '../../services/ocr_service.dart';
 import '../../services/notes_service.dart';
 
 class OcrScanScreen extends StatefulWidget {
-  const OcrScanScreen({super.key});
+  final VoidCallback? onBackPressed;
+  
+  const OcrScanScreen({super.key, this.onBackPressed});
 
   @override
   State<OcrScanScreen> createState() => _OcrScanScreenState();
@@ -203,7 +205,13 @@ class _OcrScanScreenState extends State<OcrScanScreen> {
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.arrow_back, color: Colors.white),
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () {
+                    if (widget.onBackPressed != null) {
+                      widget.onBackPressed!();
+                    } else {
+                      Navigator.pop(context);
+                    }
+                  },
                 ),
               ],
             ),
@@ -342,8 +350,7 @@ class _SaveNoteDialogState extends State<_SaveNoteDialog> {
       );
 
       if (mounted) {
-        Navigator.pop(context);
-        Navigator.pop(context); // Go back to previous screen
+        Navigator.pop(context); // Close the save dialog
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Note saved successfully!')),
         );

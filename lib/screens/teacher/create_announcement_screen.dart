@@ -65,7 +65,7 @@ class _CreateAnnouncementScreenState extends State<CreateAnnouncementScreen> {
   Future<void> _loadStudents() async {
     final announcementsService = AnnouncementsService();
     final students = await announcementsService.getAllStudents();
-    
+
     setState(() {
       _students = students;
       _availableStudents = students;
@@ -75,7 +75,7 @@ class _CreateAnnouncementScreenState extends State<CreateAnnouncementScreen> {
   Future<void> _loadStudentsForSubject(String subjectId) async {
     final announcementsService = AnnouncementsService();
     final students = await announcementsService.getStudentsForSubject(subjectId);
-    
+
     setState(() {
       _availableStudents = students;
       _selectedStudentIds.clear(); // Clear selection when subject changes
@@ -133,7 +133,7 @@ class _CreateAnnouncementScreenState extends State<CreateAnnouncementScreen> {
 
     try {
       final announcementsService = AnnouncementsService();
-      
+
       await announcementsService.createAnnouncement(
         title: _titleController.text.trim(),
         content: _contentController.text.trim(),
@@ -211,33 +211,44 @@ class _CreateAnnouncementScreenState extends State<CreateAnnouncementScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: RadioListTile<String>(
-                      title: const Text('Announcement'),
-                      value: 'announcement',
-                      groupValue: _selectedType,
-                      onChanged: (value) => setState(() => _selectedType = value!),
+              // Wrap the Row in a horizontally-scrolling view
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    // Use a Container to constrain the width of each RadioListTile
+                    Container(
+                      width: 150, // Adjust width as needed
+                      child: RadioListTile<String>(
+                        title: const Text('Announce'),
+                        value: 'announcement',
+                        groupValue: _selectedType,
+                        onChanged: (value) => setState(() => _selectedType = value!),
+                        contentPadding: EdgeInsets.zero, // Remove default padding
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: RadioListTile<String>(
-                      title: const Text('Message'),
-                      value: 'message',
-                      groupValue: _selectedType,
-                      onChanged: (value) => setState(() => _selectedType = value!),
+                    Container(
+                      width: 130, // Adjust width as needed
+                      child: RadioListTile<String>(
+                        title: const Text('Message'),
+                        value: 'message',
+                        groupValue: _selectedType,
+                        onChanged: (value) => setState(() => _selectedType = value!),
+                        contentPadding: EdgeInsets.zero, // Remove default padding
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: RadioListTile<String>(
-                      title: const Text('Assignment'),
-                      value: 'assignment',
-                      groupValue: _selectedType,
-                      onChanged: (value) => setState(() => _selectedType = value!),
+                    Container(
+                      width: 150, // Adjust width as needed
+                      child: RadioListTile<String>(
+                        title: const Text('Assignment'),
+                        value: 'assignment',
+                        groupValue: _selectedType,
+                        onChanged: (value) => setState(() => _selectedType = value!),
+                        contentPadding: EdgeInsets.zero, // Remove default padding
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               const SizedBox(height: 24),
 
@@ -272,7 +283,7 @@ class _CreateAnnouncementScreenState extends State<CreateAnnouncementScreen> {
                         ? _subjects.firstWhere((s) => s['id'] == value)['name']
                         : null;
                   });
-                  
+
                   if (value != null) {
                     _loadStudentsForSubject(value);
                   } else {
@@ -509,7 +520,7 @@ class _StudentSelectionDialogState extends State<_StudentSelectionDialog> {
               ],
             ),
             const Divider(),
-            
+
             // Students list
             Expanded(
               child: ListView.builder(
@@ -517,7 +528,7 @@ class _StudentSelectionDialogState extends State<_StudentSelectionDialog> {
                 itemBuilder: (context, index) {
                   final student = widget.students[index];
                   final isSelected = _selectedIds.contains(student['id']);
-                  
+
                   return CheckboxListTile(
                     title: Text(student['name'] ?? 'Unknown Student'),
                     subtitle: Text(student['email'] ?? ''),

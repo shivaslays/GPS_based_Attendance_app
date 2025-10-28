@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/auth_service.dart';
 import '../../services/attendance_service.dart';
 import '../../services/announcements_service.dart';
+import '../../services/location_service.dart';
 import 'attendance_popup.dart';
 import 'notes_screen.dart';
 import 'ocr_scan_screen.dart';
@@ -20,6 +21,41 @@ class StudentDashboard extends StatefulWidget {
 class _StudentDashboardState extends State<StudentDashboard> {
   int _selectedIndex = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize location service when dashboard loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeLocation();
+    });
+  }
+
+  Future<void> _initializeLocation() async {
+    final locationService = Provider.of<LocationService>(context, listen: false);
+    if (locationService.currentPosition == null) {
+      await locationService.getCurrentLocation();
+    }
+  }
+
+  void _onDrawerItemSelected(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+    
+    // Start location monitoring when attendance screen is selected
+    if (index == 1) { // Attendance index
+      final locationService = Provider.of<LocationService>(context, listen: false);
+      locationService.startLocationMonitoring();
+    } else {
+      // Stop monitoring when leaving attendance screen
+      final locationService = Provider.of<LocationService>(context, listen: false);
+      locationService.stopLocationMonitoring();
+    }
+    
+    // Close drawer
+    _scaffoldKey.currentState?.closeDrawer();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -134,55 +170,37 @@ class _StudentDashboardState extends State<StudentDashboard> {
                   icon: Icons.dashboard,
                   title: 'Dashboard',
                   isSelected: _selectedIndex == 0,
-                  onTap: () {
-                    Navigator.pop(context);
-                    setState(() => _selectedIndex = 0);
-                  },
+                  onTap: () => _onDrawerItemSelected(0),
                 ),
                 _DrawerItem(
                   icon: Icons.check_circle,
                   title: 'Attendance',
                   isSelected: _selectedIndex == 1,
-                  onTap: () {
-                    Navigator.pop(context);
-                    setState(() => _selectedIndex = 1);
-                  },
+                  onTap: () => _onDrawerItemSelected(1),
                 ),
                 _DrawerItem(
                   icon: Icons.note,
                   title: 'My Notes',
                   isSelected: _selectedIndex == 2,
-                  onTap: () {
-                    Navigator.pop(context);
-                    setState(() => _selectedIndex = 2);
-                  },
+                  onTap: () => _onDrawerItemSelected(2),
                 ),
                 _DrawerItem(
                   icon: Icons.camera_alt,
                   title: 'Scan Notes',
                   isSelected: _selectedIndex == 3,
-                  onTap: () {
-                    Navigator.pop(context);
-                    setState(() => _selectedIndex = 3);
-                  },
+                  onTap: () => _onDrawerItemSelected(3),
                 ),
                 _DrawerItem(
                   icon: Icons.analytics,
                   title: 'Attendance Report',
                   isSelected: _selectedIndex == 4,
-                  onTap: () {
-                    Navigator.pop(context);
-                    setState(() => _selectedIndex = 4);
-                  },
+                  onTap: () => _onDrawerItemSelected(4),
                 ),
                 _DrawerItem(
                   icon: Icons.campaign,
                   title: 'Announcements',
                   isSelected: _selectedIndex == 5,
-                  onTap: () {
-                    Navigator.pop(context);
-                    setState(() => _selectedIndex = 5);
-                  },
+                  onTap: () => _onDrawerItemSelected(5),
                 ),
               ],
             ),
@@ -288,7 +306,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                   title: 'Mark Attendance',
                   subtitle: 'Check in for class',
                   color: Colors.green,
-                  onTap: () => setState(() => _selectedIndex = 1),
+                  onTap: () => _onDrawerItemSelected(1),
                 ),
               ),
               const SizedBox(width: 16),
@@ -298,7 +316,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                   title: 'Scan Notes',
                   subtitle: 'OCR text recognition',
                   color: Colors.orange,
-                  onTap: () => setState(() => _selectedIndex = 3),
+                  onTap: () => _onDrawerItemSelected(3),
                 ),
               ),
             ],
@@ -313,7 +331,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                   title: 'My Notes',
                   subtitle: 'View saved notes',
                   color: Colors.purple,
-                  onTap: () => setState(() => _selectedIndex = 2),
+                  onTap: () => _onDrawerItemSelected(2),
                 ),
               ),
               const SizedBox(width: 16),
@@ -323,7 +341,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                   title: 'Attendance Report',
                   subtitle: 'Detailed statistics',
                   color: Colors.blue,
-                  onTap: () => setState(() => _selectedIndex = 4),
+                  onTap: () => _onDrawerItemSelected(4),
                 ),
               ),
             ],
@@ -334,7 +352,183 @@ class _StudentDashboardState extends State<StudentDashboard> {
   }
 
   Widget _buildAttendanceContent() {
-    return AttendancePopup(session: {});
+    return Consumer2<AttendanceService, LocationService>(
+      builder: (context, attendanceService, locationService, child) {
+        return StreamBuilder<List<Map<String, dynamic>>>(
+          stream: attendanceService.getActiveAttendanceSessions(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            
+            if (snapshot.hasError) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error, size: 64, color: Colors.red),
+                    const SizedBox(height: 16),
+                    Text('Error: ${snapshot.error}'),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () => setState(() {}),
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              );
+            }
+            
+            final sessions = snapshot.data ?? [];
+            
+            if (sessions.isEmpty) {
+              return const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.event_available, size: 64, color: Colors.grey),
+                    SizedBox(height: 16),
+                    Text(
+                      'No active attendance sessions',
+                      style: TextStyle(fontSize: 18, color: Colors.grey),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Check back later or ask your teacher',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ],
+                ),
+              );
+            }
+            
+            // Filter sessions based on location and show only accessible ones
+            final accessibleSessions = <Map<String, dynamic>>[];
+            
+            for (final session in sessions) {
+              final teacherLat = session['latitude'] as double?;
+              final teacherLon = session['longitude'] as double?;
+              final rangeInMeters = (session['rangeInMeters'] as double?) ?? 50.0;
+              
+              if (teacherLat != null && teacherLon != null) {
+                final isWithinRange = locationService.isWithinRange(
+                  teacherLat, 
+                  teacherLon, 
+                  rangeInMeters
+                );
+                
+                if (isWithinRange) {
+                  accessibleSessions.add(session);
+                }
+              }
+            }
+            
+            return Column(
+              children: [
+                // Location Status
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: locationService.currentPosition != null 
+                        ? Colors.green.withValues(alpha: 0.1)
+                        : Colors.orange.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: locationService.currentPosition != null 
+                          ? Colors.green
+                          : Colors.orange,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        locationService.currentPosition != null 
+                            ? Icons.location_on 
+                            : Icons.location_off,
+                        color: locationService.currentPosition != null 
+                            ? Colors.green 
+                            : Colors.orange,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          locationService.currentPosition != null 
+                              ? 'Location tracking active'
+                              : 'Location not available',
+                          style: TextStyle(
+                            color: locationService.currentPosition != null 
+                                ? Colors.green 
+                                : Colors.orange,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      if (locationService.currentPosition == null)
+                        TextButton(
+                          onPressed: () async {
+                            await locationService.getCurrentLocation();
+                          },
+                          child: const Text('Enable'),
+                        ),
+                    ],
+                  ),
+                ),
+                
+                // Sessions List
+                Expanded(
+                  child: accessibleSessions.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.location_off, size: 64, color: Colors.orange),
+                              const SizedBox(height: 16),
+                              const Text(
+                                'No attendance sessions in range',
+                                style: TextStyle(fontSize: 18, color: Colors.grey),
+                              ),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Move closer to the teacher or wait for a new session',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          itemCount: accessibleSessions.length,
+                          itemBuilder: (context, index) {
+                            final session = accessibleSessions[index];
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              child: ListTile(
+                                leading: const Icon(Icons.location_on, color: Colors.green),
+                                title: const Text('Attendance Session'),
+                                subtitle: Text('Range: ${session['rangeInMeters']?.toInt() ?? 50}m'),
+                                trailing: ElevatedButton(
+                                  onPressed: () {
+                                    showDialog(
+                                      context: context,
+                                      builder: (context) => AttendancePopup(session: session),
+                                    );
+                                  },
+                                  child: const Text('Mark Present'),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   Widget _buildNotesContent() {
@@ -342,7 +536,13 @@ class _StudentDashboardState extends State<StudentDashboard> {
   }
 
   Widget _buildScanNotesContent() {
-    return const OcrScanScreen();
+    return OcrScanScreen(
+      onBackPressed: () {
+        setState(() {
+          _selectedIndex = 0; // Go back to dashboard
+        });
+      },
+    );
   }
 
   Widget _buildAttendanceReportContent() {

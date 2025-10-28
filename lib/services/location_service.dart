@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -6,10 +7,13 @@ class LocationService extends ChangeNotifier {
   Position? _currentPosition;
   bool _isLocationEnabled = false;
   bool _isLoading = false;
+  Timer? _locationTimer;
+  bool _isMonitoring = false;
 
   Position? get currentPosition => _currentPosition;
   bool get isLocationEnabled => _isLocationEnabled;
   bool get isLoading => _isLoading;
+  bool get isMonitoring => _isMonitoring;
 
   Future<bool> requestLocationPermission() async {
     try {
@@ -89,5 +93,76 @@ class LocationService extends ChangeNotifier {
     );
     
     return distance <= rangeInMeters;
+  }
+
+  // Start continuous location monitoring
+  void startLocationMonitoring() {
+    if (_isMonitoring) return;
+    
+    _isMonitoring = true;
+    _locationTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      _updateLocationSilently();
+    });
+    
+    // Get initial location
+    _updateLocationSilently();
+    notifyListeners();
+  }
+
+  // Stop location monitoring
+  void stopLocationMonitoring() {
+    _locationTimer?.cancel();
+    _locationTimer = null;
+    _isMonitoring = false;
+    notifyListeners();
+  }
+
+  // Update location without showing loading state
+  Future<void> _updateLocationSilently() async {
+    try {
+      // Check if location services are enabled
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        _isLocationEnabled = false;
+        return;
+      }
+
+      // Check permissions
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied || 
+          permission == LocationPermission.deniedForever) {
+        _isLocationEnabled = false;
+        return;
+      }
+
+      // Get current position
+      final newPosition = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      );
+      
+      // Only update if position has changed significantly (more than 5 meters)
+      if (_currentPosition == null || 
+          calculateDistance(
+            _currentPosition!.latitude, 
+            _currentPosition!.longitude,
+            newPosition.latitude, 
+            newPosition.longitude
+          ) > 5) {
+        _currentPosition = newPosition;
+        _isLocationEnabled = true;
+        notifyListeners();
+      }
+    } catch (e) {
+      print('Silent location update error: $e');
+      // Don't update UI for silent location errors
+    }
+  }
+
+  @override
+  void dispose() {
+    stopLocationMonitoring();
+    super.dispose();
   }
 }

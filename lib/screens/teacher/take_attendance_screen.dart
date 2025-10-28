@@ -221,8 +221,8 @@ class _TakeAttendanceScreenState extends State<TakeAttendanceScreen> {
                       Slider(
                         value: _rangeInMeters,
                         min: 10.0,
-                        max: 200.0,
-                        divisions: 19,
+                        max: 50.0,
+                        divisions: 4,
                         label: '${_rangeInMeters.toInt()}m',
                         onChanged: (value) {
                           setState(() {
