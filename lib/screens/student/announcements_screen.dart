@@ -306,23 +306,31 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
                               fontSize: 12,
                               color: Colors.grey,
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                       ],
                     ),
                   ),
                   if (isAssignment && hasDueDate)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: isOverdue ? Colors.red : Colors.orange,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        'Due: ${_formatDate(dueDate)}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
+                    Flexible(
+                      flex: 0,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: isOverdue ? Colors.red : Colors.orange,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            'Due: ${_formatDate(dueDate)}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -352,30 +360,43 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
               // Footer with points and date
               Row(
                 children: [
-                  if (isAssignment && announcement['points'] != null) ...[
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        '${announcement['points']} points',
-                        style: const TextStyle(
-                          color: Colors.blue,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        if (isAssignment && announcement['points'] != null) ...[
+                          Flexible(
+                            flex: 0,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                '${announcement['points']} points',
+                                style: const TextStyle(
+                                  color: Colors.blue,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                  ],
-                  const Spacer(),
-                  Text(
-                    _formatDate(announcement['createdAt']),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
+                  ),
+                  Flexible(
+                    flex: 0,
+                    child: Text(
+                      _formatDate(announcement['createdAt']),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ),
                 ],
@@ -417,15 +438,19 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
               // Type and subject
               Row(
                 children: [
-                  Text(
+                  const Text(
                     'Type: ',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    style: TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  Text(
-                    announcement['type']?.toString().toUpperCase() ?? '',
-                    style: TextStyle(
-                      color: _getTypeColor(announcement['type']),
-                      fontWeight: FontWeight.bold,
+                  Expanded(
+                    child: Text(
+                      announcement['type']?.toString().toUpperCase() ?? '',
+                      style: TextStyle(
+                        color: _getTypeColor(announcement['type']),
+                        fontWeight: FontWeight.bold,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ),
                 ],
@@ -435,7 +460,13 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
                 Row(
                   children: [
                     const Text('Subject: ', style: TextStyle(fontWeight: FontWeight.bold)),
-                    Text(announcement['subjectName']),
+                    Expanded(
+                      child: Text(
+                        announcement['subjectName'],
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -444,7 +475,13 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
                 Row(
                   children: [
                     const Text('Points: ', style: TextStyle(fontWeight: FontWeight.bold)),
-                    Text('${announcement['points']} points'),
+                    Expanded(
+                      child: Text(
+                        '${announcement['points']} points',
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -453,9 +490,13 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen>
                 Row(
                   children: [
                     const Text('Due Date: ', style: TextStyle(fontWeight: FontWeight.bold)),
-                    Text(
-                      _formatDate(announcement['dueDate']),
-                      style: const TextStyle(color: Colors.red),
+                    Expanded(
+                      child: Text(
+                        _formatDate(announcement['dueDate']),
+                        style: const TextStyle(color: Colors.red),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
                     ),
                   ],
                 ),

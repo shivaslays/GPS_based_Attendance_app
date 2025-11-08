@@ -412,14 +412,345 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
   }
 
   Widget _buildSubjectsContent() {
-    return const Center(
-      child: Text('Subjects management coming soon...'),
+    final teacherId = _auth.currentUser?.uid;
+    if (teacherId == null) {
+      return const Center(child: Text('User not authenticated'));
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'My Subjects',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AddSubjectScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.add),
+                label: const Text('Add Subject'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('subjects')
+                .where('teacherId', isEqualTo: teacherId)
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              if (snapshot.hasError) {
+                return Center(child: Text('Error: ${snapshot.error}'));
+              }
+
+              final docs = List<QueryDocumentSnapshot>.from(snapshot.data?.docs ?? []);
+              // Client-side sort by createdAt desc to avoid composite index
+              docs.sort((a, b) {
+                final aTs = a.data() is Map<String, dynamic>
+                    ? ((a.data() as Map<String, dynamic>)['createdAt'] as Timestamp?)
+                    : null;
+                final bTs = b.data() is Map<String, dynamic>
+                    ? ((b.data() as Map<String, dynamic>)['createdAt'] as Timestamp?)
+                    : null;
+                final aMs = aTs?.millisecondsSinceEpoch ?? 0;
+                final bMs = bTs?.millisecondsSinceEpoch ?? 0;
+                return bMs.compareTo(aMs);
+              });
+              if (docs.isEmpty) {
+                return Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32.0),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.book,
+                          size: 64,
+                          color: Colors.grey[400],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No subjects yet',
+                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                color: Colors.grey[600],
+                              ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Create your first subject to get started',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: Colors.grey[500],
+                              ),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const AddSubjectScreen(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.add),
+                          label: const Text('Add Subject'),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+
+              return ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: docs.length,
+                itemBuilder: (context, index) {
+                  final doc = docs[index];
+                  final data = doc.data() as Map<String, dynamic>? ?? {};
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: ListTile(
+                      leading: const CircleAvatar(
+                        backgroundColor: Colors.purple,
+                        child: Icon(Icons.book, color: Colors.white),
+                      ),
+                      title: Text(
+                        data['name'] ?? 'Untitled Subject',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (data['code'] != null)
+                            Text('Code: ${data['code']}'),
+                          if (data['description'] != null && (data['description'] as String).trim().isNotEmpty)
+                            Text(data['description']),
+                        ],
+                      ),
+                      trailing: TextButton(
+                        onPressed: () {
+                          // Future: navigate to subject details
+                        },
+                        child: const Text('Details'),
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildLecturesContent() {
-    return const Center(
-      child: Text('Lectures management coming soon...'),
+    final teacherId = _auth.currentUser?.uid;
+    if (teacherId == null) {
+      return const Center(child: Text('User not authenticated'));
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'My Lectures',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AddLectureScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.add_circle),
+                label: const Text('Add Lecture'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Preload subjects to map subjectId -> name
+          StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('subjects')
+                .where('teacherId', isEqualTo: teacherId)
+                .snapshots(),
+            builder: (context, subjectsSnapshot) {
+              final Map<String, String> subjectIdToName = {};
+              if (subjectsSnapshot.hasData) {
+                for (final d in subjectsSnapshot.data!.docs) {
+                  final m = d.data() as Map<String, dynamic>? ?? {};
+                  subjectIdToName[d.id] = (m['name'] ?? '').toString();
+                }
+              }
+
+              return StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('lectures')
+                    .where('teacherId', isEqualTo: teacherId)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  if (snapshot.hasError) {
+                    return Center(child: Text('Error: ${snapshot.error}'));
+                  }
+
+                  final docs = List<QueryDocumentSnapshot>.from(snapshot.data?.docs ?? []);
+                  // Client-side sort by dateTime desc to avoid composite index
+                  docs.sort((a, b) {
+                    final aTs = a.data() is Map<String, dynamic>
+                        ? ((a.data() as Map<String, dynamic>)['dateTime'] as Timestamp?)
+                        : null;
+                    final bTs = b.data() is Map<String, dynamic>
+                        ? ((b.data() as Map<String, dynamic>)['dateTime'] as Timestamp?)
+                        : null;
+                    final aMs = aTs?.millisecondsSinceEpoch ?? 0;
+                    final bMs = bTs?.millisecondsSinceEpoch ?? 0;
+                    return bMs.compareTo(aMs);
+                  });
+                  if (docs.isEmpty) {
+                    return Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32.0),
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.school,
+                              size: 64,
+                              color: Colors.grey[400],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No lectures yet',
+                              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                    color: Colors.grey[600],
+                                  ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Create a lecture to schedule your sessions',
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: Colors.grey[500],
+                                  ),
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const AddLectureScreen(),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.add_circle),
+                              label: const Text('Add Lecture'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: docs.length,
+                    itemBuilder: (context, index) {
+                      final doc = docs[index];
+                      final data = doc.data() as Map<String, dynamic>? ?? {};
+                      final subjectName = (data['subjectName'] as String?) ?? subjectIdToName[(data['subjectId'] ?? '').toString()] ?? 'Unknown Subject';
+
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          leading: const CircleAvatar(
+                            backgroundColor: Colors.blue,
+                            child: Icon(Icons.school, color: Colors.white),
+                          ),
+                          title: Text(
+                            data['title'] ?? 'Untitled Lecture',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(subjectName),
+                              if (data['date'] != null && data['time'] != null)
+                                Text('${data['date']} at ${data['time']}'),
+                              if (data['room'] != null && (data['room'] as String).trim().isNotEmpty)
+                                Text('Room: ${data['room']}'),
+                            ],
+                          ),
+                          trailing: PopupMenuButton(
+                            itemBuilder: (context) => const [
+                              PopupMenuItem(
+                                value: 'details',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.visibility),
+                                    SizedBox(width: 8),
+                                    Text('Details'),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            onSelected: (value) {
+                              if (value == 'details') {
+                                _showSessionDetails({
+                                  'lectureTitle': data['title'],
+                                  'subjectName': subjectName,
+                                  'date': data['date'],
+                                  'time': data['time'],
+                                  'isActive': false,
+                                  'attendedCount': 0,
+                                  'totalStudents': null,
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -569,8 +900,8 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              ElevatedButton.icon(
-                onPressed: () {
+              InkWell(
+                onTap: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -578,8 +909,15 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                     ),
                   );
                 },
-                icon: const Icon(Icons.add),
-                label: const Text('Create Announcement'),
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.blue,
+                    shape: BoxShape.circle,
+                  ),
+                  padding: const EdgeInsets.all(8),
+                  child: const Icon(Icons.add, color: Colors.white),
+                ),
               ),
             ],
           ),
@@ -650,8 +988,8 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        ElevatedButton.icon(
-                          onPressed: () {
+                        InkWell(
+                          onTap: () {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -659,8 +997,15 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                               ),
                             );
                           },
-                          icon: const Icon(Icons.add),
-                          label: const Text('Create Announcement'),
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            decoration: const BoxDecoration(
+                              color: Colors.blue,
+                              shape: BoxShape.circle,
+                            ),
+                            padding: const EdgeInsets.all(8),
+                            child: const Icon(Icons.add, color: Colors.white),
+                          ),
                         ),
                       ],
                     ),
@@ -694,20 +1039,30 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                           Text(announcement['content'] ?? ''),
                           const SizedBox(height: 4),
                           Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(
-                                announcement['type']?.toString().toUpperCase() ?? '',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: _getTypeColor(announcement['type']),
-                                  fontWeight: FontWeight.bold,
+                              Flexible(
+                                flex: 0,
+                                child: Text(
+                                  announcement['type']?.toString().toUpperCase() ?? '',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: _getTypeColor(announcement['type']),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
                                 ),
                               ),
                               if (announcement['subjectName'] != null) ...[
                                 const SizedBox(width: 8),
-                                Text(
-                                  '• ${announcement['subjectName']}',
-                                  style: const TextStyle(fontSize: 12),
+                                Flexible(
+                                  child: Text(
+                                    '• ${announcement['subjectName']}',
+                                    style: const TextStyle(fontSize: 12),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                  ),
                                 ),
                               ],
                             ],
@@ -861,20 +1216,30 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                             ),
                             const SizedBox(height: 4),
                             Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text(
-                                  announcement['type']?.toString().toUpperCase() ?? '',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: _getTypeColor(announcement['type']),
-                                    fontWeight: FontWeight.bold,
+                                Flexible(
+                                  flex: 0,
+                                  child: Text(
+                                    announcement['type']?.toString().toUpperCase() ?? '',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: _getTypeColor(announcement['type']),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
                                   ),
                                 ),
                                 if (announcement['subjectName'] != null) ...[
                                   const SizedBox(width: 8),
-                                  Text(
-                                    '• ${announcement['subjectName']}',
-                                    style: const TextStyle(fontSize: 10),
+                                  Flexible(
+                                    child: Text(
+                                      '• ${announcement['subjectName']}',
+                                      style: const TextStyle(fontSize: 10),
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    ),
                                   ),
                                 ],
                               ],

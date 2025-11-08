@@ -4,6 +4,13 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     
+    <!-- Location permissions for attendance and presence tracking -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- If background location is needed for your use case, uncomment the line below (and handle policy requirements)
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    -->
+    
     <application
         android:label="EduPortal"
         android:name="${applicationName}"
